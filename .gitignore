@@ -1,0 +1,11 @@
+__pycache__/
+.venv/
+.vscode/
+.vs/
+
+**/*.dll
+**/*.exe
+**/*.obj
+**/*.o
+**/*.log
+**/*.tlog
