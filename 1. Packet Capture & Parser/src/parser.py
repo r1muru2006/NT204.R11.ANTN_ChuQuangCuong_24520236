@@ -15,6 +15,17 @@ def parse_packet(pkt: Packet, packet_id: int):
 
         payload = b""
 
+        if TCP in pkt:
+            tcp = pkt[TCP]
+            event.transport = "TCP"
+            event.src_port = int(tcp.sport)
+            event.dst_port = int(tcp.dport)
+            event.tcp_flags = _tcp_flags(tcp.flags)
+            event.tcp_seq = int(tcp.seq)
+            event.tcp_ack = int(tcp.ack)
+            if tcp.payload:
+                payload = bytes(tcp.payload)
+        
         ...
 
         return event
