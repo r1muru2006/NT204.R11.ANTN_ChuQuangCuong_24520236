@@ -68,7 +68,7 @@ def parse_http(payload: bytes, event: NormalizedEvent):
     event.fields = f
 
 
-def parse_dns(pkt: Packet, event: NormalizedEvent) -> None:
+def parse_dns(pkt: Packet, event: NormalizedEvent):
     dns = pkt[DNS]
     f = event.fields or {}
     f["id"] = int(dns.id)
@@ -95,6 +95,22 @@ def parse_dns(pkt: Packet, event: NormalizedEvent) -> None:
         except Exception:
             continue
     f["answers"] = answers
+    event.fields = f
+
+
+def parse_smtp(payload: bytes, event: NormalizedEvent):
+    text = _safe_decode(payload)
+    lines = [x for x in text.splitlines() if x]
+    f = event.fields or {}
+    commands = []
+    responses = []
+    for line in lines:
+        upper = line.upper()
+        if upper.startswith(("HELO ", "EHLO ", "MAIL FROM:", "RCPT TO:", "DATA", "QUIT", "RSET", "NOOP", "VRFY")):
+            commands.append(line)
+        if len(line) >= 3 and line[:3].isdigit():
+            responses.append({"code": int(line[:3]), "text": line[4:] if len(line) > 4 else ""})
+    f.update({"commands": commands, "responses": responses})
     event.fields = f
 
 
@@ -138,7 +154,8 @@ def parse_packet(pkt: Packet, packet_id: int):
             parse_http(payload, event)
         elif event.application == "DNS" and DNS in pkt:
             parse_dns(pkt, event)
-            
+        elif event.application == "SMTP":
+            parse_smtp(payload, event)
         return event
     except Exception as exc:
         event.error = f"parse_error: {type(exc).__name__}: {exc}"
