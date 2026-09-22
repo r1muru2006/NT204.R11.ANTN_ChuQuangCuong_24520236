@@ -68,6 +68,36 @@ def parse_http(payload: bytes, event: NormalizedEvent):
     event.fields = f
 
 
+def parse_dns(pkt: Packet, event: NormalizedEvent) -> None:
+    dns = pkt[DNS]
+    f = event.fields or {}
+    f["id"] = int(dns.id)
+    f["qr"] = int(dns.qr)
+    f["opcode"] = int(dns.opcode)
+    f["rcode"] = int(dns.rcode)
+    f["questions"] = []
+    for i in range(int(dns.qdcount or 0)):
+        q = dns.qd[i] if int(dns.qdcount or 0) > 1 else dns.qd
+        if q is None or not hasattr(q, "qname"):
+            continue
+        name = _safe_decode(bytes(q.qname).rstrip(b"."))
+        f["questions"].append({"name": name, "qtype": int(q.qtype), "qclass": int(q.qclass)})
+    answers = []
+    for i in range(int(dns.ancount or 0)):
+        try:
+            rr = dns.an[i] if int(dns.ancount or 0) > 1 else dns.an
+            if rr is None or not hasattr(rr, "rrname"):
+                continue
+            item = {"name": _safe_decode(bytes(rr.rrname).rstrip(b".")), "type": int(rr.type), "ttl": int(rr.ttl)}
+            if hasattr(rr, "rdata"):
+                item["data"] = str(rr.rdata)
+            answers.append(item)
+        except Exception:
+            continue
+    f["answers"] = answers
+    event.fields = f
+
+
 def parse_packet(pkt: Packet, packet_id: int):
     event = NormalizedEvent(packet_id=packet_id)
     try:
@@ -106,7 +136,9 @@ def parse_packet(pkt: Packet, packet_id: int):
         event.application = detect_application(payload, event.src_port, event.dst_port, pkt)
         if event.application == "HTTP":
             parse_http(payload, event)
-
+        elif event.application == "DNS" and DNS in pkt:
+            parse_dns(pkt, event)
+            
         return event
     except Exception as exc:
         event.error = f"parse_error: {type(exc).__name__}: {exc}"
