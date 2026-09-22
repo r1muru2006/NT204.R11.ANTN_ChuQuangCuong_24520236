@@ -25,7 +25,15 @@ def parse_packet(pkt: Packet, packet_id: int):
             event.tcp_ack = int(tcp.ack)
             if tcp.payload:
                 payload = bytes(tcp.payload)
-        
+        elif UDP in pkt:
+            udp = pkt[UDP]
+            event.transport = "UDP"
+            event.src_port = int(udp.sport)
+            event.dst_port = int(udp.dport)
+            if udp.payload:
+                payload = bytes(udp.payload)
+        else:
+            event.transport = "OTHER"
         ...
 
         return event
