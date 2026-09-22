@@ -1,6 +1,12 @@
 from scapy.packet import Packet
 from models import NormalizedEvent
 
+def _tcp_flags(flags):
+    try:
+        return str(flags)
+    except Exception:
+        return repr(flags)
+
 def parse_packet(pkt: Packet, packet_id: int):
     event = NormalizedEvent(packet_id=packet_id)
     try:
