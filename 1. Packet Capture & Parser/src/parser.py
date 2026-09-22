@@ -1,4 +1,7 @@
 from scapy.packet import Packet
+from scapy.layers.inet import IP, TCP, UDP
+from scapy.layers.dns import DNS, DNSQR, DNSRR
+from scapy.layers.http import HTTPRequest, HTTPResponse
 from models import NormalizedEvent
 
 HTTP_METHODS = {b"GET", b"POST", b"PUT", b"DELETE", b"HEAD", b"OPTIONS", b"PATCH", b"CONNECT", b"TRACE"}
