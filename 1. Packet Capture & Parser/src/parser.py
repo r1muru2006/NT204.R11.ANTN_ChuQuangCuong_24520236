@@ -3,6 +3,10 @@ from models import NormalizedEvent
 
 HTTP_METHODS = {b"GET", b"POST", b"PUT", b"DELETE", b"HEAD", b"OPTIONS", b"PATCH", b"CONNECT", b"TRACE"}
 
+
+def _safe_decode(data):
+    return data.decode("utf-8", errors="replace")
+
 def _tcp_flags(flags):
     try:
         return str(flags)
@@ -26,6 +30,42 @@ def detect_application(payload, src_port, dst_port, pkt):
         if upper.startswith((b"HELO ", b"EHLO ", b"MAIL FROM:", b"RCPT TO:", b"DATA", b"QUIT", b"RSET", b"NOOP", b"VRFY", b"250 ", b"220 ", b"221 ", b"354 ", b"550 ", b"553 ")):
             return "SMTP"
     return "UNKNOWN"
+
+
+def parse_http(payload: bytes, event: NormalizedEvent):
+    text = _safe_decode(payload)
+    lines = text.split("\r\n")
+    if not lines:
+        return
+    start = lines[0]
+    headers: dict[str, str] = {}
+    i = 1
+    while i < len(lines) and lines[i] != "":
+        if ":" in lines[i]:
+            k, v = lines[i].split(":", 1)
+            headers[k.strip()] = v.strip()
+        i += 1
+    body = "\r\n".join(lines[i + 1:]) if i < len(lines) else ""
+    f = event.fields or {}
+    if start.startswith("HTTP/"):
+        parts = start.split(" ", 2)
+        f.update({"type": "response", "version": parts[0]})
+        if len(parts) >= 2 and parts[1].isdigit():
+            f["status_code"] = int(parts[1])
+        if len(parts) == 3:
+            f["reason"] = parts[2]
+    else:
+        parts = start.split(" ", 2)
+        f.update({"type": "request"})
+        if len(parts) >= 1:
+            f["method"] = parts[0]
+        if len(parts) >= 2:
+            f["uri"] = parts[1]
+        if len(parts) >= 3:
+            f["version"] = parts[2]
+    f["headers"] = headers
+    f["body"] = body
+    event.fields = f
 
 
 def parse_packet(pkt: Packet, packet_id: int):
@@ -64,7 +104,8 @@ def parse_packet(pkt: Packet, packet_id: int):
 
         event.payload_len = len(payload)
         event.application = detect_application(payload, event.src_port, event.dst_port, pkt)
-
+        if event.application == "HTTP":
+            parse_http(payload, event)
 
         return event
     except Exception as exc:
