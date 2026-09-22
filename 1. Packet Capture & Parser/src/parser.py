@@ -7,6 +7,25 @@ def _tcp_flags(flags):
     except Exception:
         return repr(flags)
 
+
+def detect_application(payload, src_port, dst_port, pkt):
+    stripped = payload.lstrip()
+    first = stripped.split(b" ", 1)[0] if stripped else b""
+    if first in HTTP_METHODS and (b"HTTP/1." in stripped[:512] or b"\r\n" in stripped[:512]):
+        return "HTTP"
+    if stripped.startswith(b"HTTP/1.0") or stripped.startswith(b"HTTP/1.1"):
+        return "HTTP"
+    if isinstance(pkt, HTTPRequest) or isinstance(pkt, HTTPResponse):
+        return "HTTP"
+    if DNS in pkt or src_port in (53, 5353) or dst_port in (53, 5353):
+        return "DNS"
+    if src_port == 25 or dst_port == 25 or src_port == 587 or dst_port == 587 or src_port == 465 or dst_port == 465:
+        upper = stripped.upper()
+        if upper.startswith((b"HELO ", b"EHLO ", b"MAIL FROM:", b"RCPT TO:", b"DATA", b"QUIT", b"RSET", b"NOOP", b"VRFY", b"250 ", b"220 ", b"221 ", b"354 ", b"550 ", b"553 ")):
+            return "SMTP"
+    return "UNKNOWN"
+
+
 def parse_packet(pkt: Packet, packet_id: int):
     event = NormalizedEvent(packet_id=packet_id)
     try:
@@ -40,7 +59,10 @@ def parse_packet(pkt: Packet, packet_id: int):
                 payload = bytes(udp.payload)
         else:
             event.transport = "OTHER"
-        ...
+
+        event.payload_len = len(payload)
+        event.application = detect_application(payload, event.src_port, event.dst_port, pkt)
+
 
         return event
     except Exception as exc:
