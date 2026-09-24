@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from scapy.all import (
     Ether,
     IP,
@@ -12,175 +13,207 @@ from scapy.all import (
 )
 
 
-OUT = Path("TEST/pcaps")
-OUT.mkdir(parents=True, exist_ok=True)
+# ============================================================
+# Configuration
+# ============================================================
 
-
-def save(name, packets):
-    path = OUT / name
-    wrpcap(str(path), packets)
-    print(f"[+] Created: {path}")
-
-
-client = "10.0.0.1"
-server = "10.0.0.2"
+BASE_DIR = Path(__file__).resolve().parent
 
 
 # ============================================================
-# 01 - TCP THREE-WAY HANDSHAKE
+# Helper
 # ============================================================
 
-syn = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=12345,
-        dport=80,
+def create_case(case_number, case_name, packets):
+    """
+    Create:
+
+        <number>.<case_name>.jsonl/
+            <case_name>.pcap
+
+    Example:
+
+        1.tcp_handshake.jsonl/
+            tcp_handshake.pcap
+    """
+
+    case_dir = BASE_DIR / f"{case_number}.{case_name}.jsonl"
+    case_dir.mkdir(parents=True, exist_ok=True)
+
+    pcap_path = case_dir / f"{case_name}.pcap"
+
+    wrpcap(str(pcap_path), packets)
+
+    print(f"[+] Created: {case_dir}")
+    print(f"    PCAP: {pcap_path}")
+
+
+# ============================================================
+# 1. TCP Handshake
+# ============================================================
+
+client_ip = "192.168.1.10"
+server_ip = "192.168.1.20"
+
+client_port = 12345
+server_port = 80
+
+tcp_handshake = [
+    # SYN
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=client_port,
+        dport=server_port,
         flags="S",
         seq=1000,
-    )
-)
+    ),
 
-synack = (
-    Ether()
-    / IP(src=server, dst=client)
-    / TCP(
-        sport=80,
-        dport=12345,
+    # SYN/ACK
+    Ether() /
+    IP(src=server_ip, dst=client_ip) /
+    TCP(
+        sport=server_port,
+        dport=client_port,
         flags="SA",
         seq=2000,
         ack=1001,
-    )
-)
+    ),
 
-ack = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=12345,
-        dport=80,
+    # ACK
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=client_port,
+        dport=server_port,
         flags="A",
         seq=1001,
         ack=2001,
-    )
-)
+    ),
+]
 
-save(
-    "01_tcp_handshake.pcap",
-    [syn, synack, ack],
+create_case(
+    1,
+    "tcp_handshake",
+    tcp_handshake,
 )
 
 
 # ============================================================
-# 02 - TCP DATA
+# 2. TCP Data
 # ============================================================
 
-packet = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=12345,
-        dport=80,
+tcp_data = [
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=client_port,
+        dport=server_port,
         flags="PA",
         seq=1001,
         ack=2001,
-    )
-    / Raw(b"Hello TCP")
-)
+    ) /
+    Raw(load=b"Hello TCP"),
+]
 
-save(
-    "02_tcp_data.pcap",
-    [packet],
-)
-
-
-# ============================================================
-# 03 - UDP
-# ============================================================
-
-packet = (
-    Ether()
-    / IP(src=client, dst=server)
-    / UDP(
-        sport=50000,
-        dport=50001,
-    )
-    / Raw(b"Hello UDP")
-)
-
-save(
-    "03_udp.pcap",
-    [packet],
+create_case(
+    2,
+    "tcp_data",
+    tcp_data,
 )
 
 
 # ============================================================
-# 04 - HTTP GET
+# 3. UDP
 # ============================================================
 
-payload = (
+udp_packet = [
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    UDP(
+        sport=12345,
+        dport=9999,
+    ) /
+    Raw(load=b"Hello UDP"),
+]
+
+create_case(
+    3,
+    "udp",
+    udp_packet,
+)
+
+
+# ============================================================
+# 4. HTTP GET
+# ============================================================
+
+http_get = (
     b"GET /index.html HTTP/1.1\r\n"
     b"Host: example.com\r\n"
-    b"User-Agent: TestClient\r\n"
+    b"User-Agent: TestClient/1.0\r\n"
+    b"Accept: */*\r\n"
     b"\r\n"
 )
 
-packet = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=50000,
+http_get_packet = [
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=12346,
         dport=80,
         flags="PA",
-    )
-    / Raw(payload)
-)
+        seq=1,
+        ack=1,
+    ) /
+    Raw(load=http_get),
+]
 
-save(
-    "04_http_get.pcap",
-    [packet],
+create_case(
+    4,
+    "http_get",
+    http_get_packet,
 )
 
 
 # ============================================================
-# 05 - HTTP POST
+# 5. HTTP POST
 # ============================================================
 
-body = b"username=alice&password=test"
-
-payload = (
+http_post = (
     b"POST /login HTTP/1.1\r\n"
     b"Host: example.com\r\n"
     b"Content-Type: application/x-www-form-urlencoded\r\n"
-    b"Content-Length: "
-    + str(len(body)).encode()
-    + b"\r\n"
+    b"Content-Length: 29\r\n"
     b"\r\n"
-    + body
+    b"username=alice&password=test"
 )
 
-packet = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=50001,
+http_post_packet = [
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=12347,
         dport=80,
         flags="PA",
-    )
-    / Raw(payload)
-)
+        seq=1,
+        ack=1,
+    ) /
+    Raw(load=http_post),
+]
 
-save(
-    "05_http_post.pcap",
-    [packet],
+create_case(
+    5,
+    "http_post",
+    http_post_packet,
 )
 
 
 # ============================================================
-# 06 - HTTP RESPONSE
+# 6. HTTP Response
 # ============================================================
 
-payload = (
+http_response = (
     b"HTTP/1.1 200 OK\r\n"
     b"Content-Type: text/plain\r\n"
     b"Content-Length: 5\r\n"
@@ -188,64 +221,70 @@ payload = (
     b"hello"
 )
 
-packet = (
-    Ether()
-    / IP(src=server, dst=client)
-    / TCP(
+http_response_packet = [
+    Ether() /
+    IP(src=server_ip, dst=client_ip) /
+    TCP(
         sport=80,
-        dport=50000,
+        dport=12348,
         flags="PA",
-    )
-    / Raw(payload)
-)
+        seq=1,
+        ack=1,
+    ) /
+    Raw(load=http_response),
+]
 
-save(
-    "06_http_response.pcap",
-    [packet],
+create_case(
+    6,
+    "http_response",
+    http_response_packet,
 )
 
 
 # ============================================================
-# 07 - DNS QUERY
+# 7. DNS Query
 # ============================================================
 
-packet = (
-    Ether()
-    / IP(src=client, dst="8.8.8.8")
-    / UDP(
+dns_query = [
+    Ether() /
+    IP(src=client_ip, dst="8.8.8.8") /
+    UDP(
         sport=53000,
         dport=53,
-    )
-    / DNS(
+    ) /
+    DNS(
         id=0x1234,
+        qr=0,
         rd=1,
         qd=DNSQR(
             qname="example.com",
             qtype="A",
         ),
-    )
-)
+    ),
+]
 
-save(
-    "07_dns_query.pcap",
-    [packet],
+create_case(
+    7,
+    "dns_query",
+    dns_query,
 )
 
 
 # ============================================================
-# 08 - DNS RESPONSE
+# 8. DNS Response
 # ============================================================
 
-packet = (
-    Ether()
-    / IP(src="8.8.8.8", dst=client)
-    / UDP(
+dns_response = [
+    Ether() /
+    IP(src="8.8.8.8", dst=client_ip) /
+    UDP(
         sport=53,
         dport=53000,
-    )
-    / DNS(
+    ) /
+    DNS(
         id=0x1234,
         qr=1,
+        aa=1,
         rd=1,
         ra=1,
         qd=DNSQR(
@@ -258,103 +297,119 @@ packet = (
             ttl=300,
             rdata="93.184.216.34",
         ),
-    )
-)
+    ),
+]
 
-save(
-    "08_dns_response.pcap",
-    [packet],
+create_case(
+    8,
+    "dns_response",
+    dns_response,
 )
 
 
 # ============================================================
-# 09 - SMTP COMMAND
+# 9. SMTP Commands
 # ============================================================
 
-payload = (
-    b"EHLO example.com\r\n"
-    b"MAIL FROM:<alice@example.com>\r\n"
-    b"RCPT TO:<bob@example.com>\r\n"
-)
-
-packet = (
-    Ether()
-    / IP(src=client, dst=server)
-    / TCP(
-        sport=55000,
+smtp_commands = [
+    Ether() /
+    IP(src=client_ip, dst=server_ip) /
+    TCP(
+        sport=40000,
         dport=25,
         flags="PA",
-    )
-    / Raw(payload)
-)
+        seq=1,
+        ack=1,
+    ) /
+    Raw(
+        load=(
+            b"EHLO example.com\r\n"
+            b"MAIL FROM:<alice@example.com>\r\n"
+            b"RCPT TO:<bob@example.com>\r\n"
+        )
+    ),
+]
 
-save(
-    "09_smtp_command.pcap",
-    [packet],
+create_case(
+    9,
+    "smtp_command",
+    smtp_commands,
 )
 
 
 # ============================================================
-# 10 - SMTP RESPONSE
+# 10. SMTP Response
 # ============================================================
 
-payload = b"250 OK\r\n"
-
-packet = (
-    Ether()
-    / IP(src=server, dst=client)
-    / TCP(
+smtp_response = [
+    Ether() /
+    IP(src=server_ip, dst=client_ip) /
+    TCP(
         sport=25,
-        dport=55000,
+        dport=40000,
         flags="PA",
-    )
-    / Raw(payload)
-)
+        seq=1,
+        ack=1,
+    ) /
+    Raw(
+        load=b"250 OK\r\n"
+    ),
+]
 
-save(
-    "10_smtp_response.pcap",
-    [packet],
+create_case(
+    10,
+    "smtp_response",
+    smtp_response,
 )
 
 
 # ============================================================
-# 11 - UNKNOWN PROTOCOL
+# 11. Unknown Protocol
 # ============================================================
 
-packet = (
-    Ether()
-    / IP(
-        src=client,
-        dst=server,
+unknown_packet = [
+    Ether() /
+    IP(
+        src=client_ip,
+        dst=server_ip,
         proto=99,
-    )
-    / Raw(b"UNKNOWN_PROTOCOL")
-)
+    ) /
+    Raw(
+        load=b"UNKNOWN_PROTOCOL_TEST"
+    ),
+]
 
-save(
-    "11_unknown.pcap",
-    [packet],
+create_case(
+    11,
+    "unknown",
+    unknown_packet,
 )
 
 
 # ============================================================
-# 12 - MALFORMED / EMPTY PAYLOAD
+# 12. Malformed / Missing Transport
 # ============================================================
 
-packet = (
-    Ether()
-    / IP(
-        src=client,
-        dst=server,
-    )
+malformed_packet = [
+    Ether() /
+    IP(
+        src=client_ip,
+        dst=server_ip,
+    ),
+]
+
+create_case(
+    12,
+    "malformed",
+    malformed_packet,
 )
 
-save(
-    "12_malformed.pcap",
-    [packet],
-)
 
+# ============================================================
+# Done
+# ============================================================
 
 print()
-print("[+] Finished.")
-print(f"[+] PCAP directory: {OUT.resolve()}")
+print("=" * 60)
+print("All test PCAP files created successfully.")
+print("=" * 60)
