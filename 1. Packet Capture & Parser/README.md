@@ -67,3 +67,8 @@ Format: JSON Lines. Example:
 
 **Application Protocol**
 - `application`: Application-layer protocol detected by the parser.
+
+## Using AI tools
+- Model: ChatGPT
+- Source code utilizing AI: [test.py](../TEST/Bai1/test.py), [parser.py](src/parser.py)
+- Purpose of use: Inquiring about the necessary fields in a packet, coding patterns for Scapy examples, and creating a testkit.
