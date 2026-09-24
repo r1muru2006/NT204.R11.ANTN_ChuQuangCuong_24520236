@@ -53,18 +53,17 @@ Format: JSON Lines. Example:
 - `src_ip`: Source IPv4 address.
 - `dst_ip`: Destination IPv4 address.
 - `ip_protocol`: IP protocol number (e.g. `6` for TCP, `17` for UDP).
-- `ttl`: IPv4 Time To Live value.  
 
 **Transport Layer — TCP / UDP**
-- `transport_protocol`: Transport protocol, such as `TCP` or `UDP`.
+- `transport_protocol`: Transport protocol detected from the packet.
 - `src_port`: Source port.
-- `dst_port`: Destination port.  
+- `dst_port`: Destination port.
+- `payload_len`: Length of the transport/application payload in bytes.  
 
 **TCP-specific fields**
-- `tcp_flags`: TCP flags such as `SYN`, `ACK`, `PSH`, `FIN`, `RST`.
-- `seq`: TCP sequence number.
-- `ack`: TCP acknowledgment number.
-- `window`: TCP window size.  
+- `tcp_flags`: TCP flags, represented as a string such as `S`, `SA`, `A`, or `PA`.
+- `tcp_seq`: TCP sequence number.
+- `tcp_ack`: TCP acknowledgment number.  
 
-**UDP-specific fields**
-- `udp_length`: UDP datagram length.
+**Application Protocol**
+- `application`: Application-layer protocol detected by the parser.
