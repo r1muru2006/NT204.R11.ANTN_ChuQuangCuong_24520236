@@ -5,3 +5,11 @@
 - Live capture from a network interface.
 - Importing and processing packets from a PCAP file.
 
+#### Live Capture
+Using library `Scapy` in python to allow the selection of a network interface and capture packets directly.  
+Usage:
+```
+python main.py --interface eth0
+python main.py --interface wlan0
+```
+
