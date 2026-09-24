@@ -13,3 +13,10 @@ python main.py --interface eth0
 python main.py --interface wlan0
 ```
 
+#### PCAP Import
+The program can read packets from a PCAP file and feed them into the same parsing pipeline used for live traffic.  
+Usage:
+```
+python main.py --pcap test.pcap
+```
+
