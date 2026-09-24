@@ -1,0 +1,1 @@
+{"packet_id":1,"timestamp":1790264585.174305,"src_ip":"192.168.1.20","dst_ip":"192.168.1.10","ip_version":4,"transport":"TCP","src_port":25,"dst_port":40000,"tcp_flags":"PA","tcp_seq":1,"tcp_ack":1,"payload_len":8,"application":"SMTP","direction":null,"fields":{"commands":[],"responses":[{"code":250,"text":"OK"}]},"error":null}
