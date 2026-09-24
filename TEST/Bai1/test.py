@@ -28,16 +28,16 @@ def create_case(case_number, case_name, packets):
     """
     Create:
 
-        <number>.<case_name>.jsonl/
+        <number>.<case_name>./
             <case_name>.pcap
 
     Example:
 
-        1.tcp_handshake.jsonl/
+        1.tcp_handshake./
             tcp_handshake.pcap
     """
 
-    case_dir = BASE_DIR / f"{case_number}.{case_name}.jsonl"
+    case_dir = BASE_DIR / f"{case_number}.{case_name}."
     case_dir.mkdir(parents=True, exist_ok=True)
 
     pcap_path = case_dir / f"{case_name}.pcap"
