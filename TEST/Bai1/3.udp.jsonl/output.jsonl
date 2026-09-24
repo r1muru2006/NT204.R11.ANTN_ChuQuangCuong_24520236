@@ -1,0 +1,1 @@
+{"packet_id":1,"timestamp":1790264585.164033,"src_ip":"192.168.1.10","dst_ip":"192.168.1.20","ip_version":4,"transport":"UDP","src_port":12345,"dst_port":9999,"tcp_flags":null,"tcp_seq":null,"tcp_ack":null,"payload_len":9,"application":"UNKNOWN","direction":null,"fields":{},"error":null}
