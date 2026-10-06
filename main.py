@@ -2,8 +2,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from src.capture import read_pcap, live_capture
-from src.parser import parse_packet
+
+module_dir1 = Path(__file__).resolve().parent / "1. Packet Capture and Parser"
+module_dir2 = Path(__file__).resolve().parent / "2. Decoder and Tracker"
+sys.path.append(str(module_dir1))
+sys.path.append(str(module_dir2))
+
+# Import trực tiếp file capture.py và parser.py
+from capture import read_pcap, live_capture
+from parser import parse_packet
 
 
 def write_event(event, fp):
