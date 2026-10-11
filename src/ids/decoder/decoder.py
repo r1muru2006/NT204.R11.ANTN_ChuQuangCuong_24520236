@@ -44,7 +44,6 @@ __all__ = [
     "decode_event",
 ]
 
-_PERCENT_RE = re.compile(r"%[0-9A-Fa-f]{2}")
 _INVALID_PERCENT_RE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
