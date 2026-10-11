@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import binascii
 import html
+import quopri
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +37,7 @@ __all__ = [
     "decode_base64",
     "decode_quoted_printable",
     "safe_text_decode",
+    "decode_mime_payload",
 ]
 
 _PERCENT_RE = re.compile(r"%[0-9A-Fa-f]{2}")
@@ -137,6 +139,112 @@ def html_entity_decode(text: str) -> DecodeResult:
         return DecodeResult(text, DECODE_ERROR, "html", f"{type(exc).__name__}: {exc}")
     status = DECODE_DECODED if decoded != text else DECODE_UNCHANGED
     return DecodeResult(decoded, status, "html")
+
+
+def _as_bytes(data: str | bytes) -> bytes:
+    if isinstance(data, bytes):
+        return data
+    return data.encode("utf-8", errors="strict")
+
+
+def decode_base64(data: str | bytes) -> DecodeResult:
+    """Decode SMTP/MIME Base64 content into raw bytes.
+
+    This is a *representation* decode, not decryption. Whitespace/newlines are
+    ignored and missing padding is tolerated, as commonly seen in MIME bodies.
+    """
+    if not isinstance(data, (str, bytes)):
+        return DecodeResult(data, DECODE_NOT_APPLICABLE, "base64")
+    try:
+        raw = _as_bytes(data)
+    except UnicodeEncodeError as exc:
+        return DecodeResult(data, DECODE_ERROR, "base64", str(exc))
+    cleaned = re.sub(rb"\s+", b"", raw)
+    if cleaned == b"":
+        return DecodeResult(b"", DECODE_UNCHANGED, "base64")
+    padding = b"=" * ((-len(cleaned)) % 4)
+    try:
+        decoded = base64.b64decode(cleaned + padding, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        return DecodeResult(data, DECODE_ERROR, "base64", f"{type(exc).__name__}: {exc}")
+    status = DECODE_DECODED if decoded != raw else DECODE_UNCHANGED
+    return DecodeResult(decoded, status, "base64")
+
+
+def decode_quoted_printable(data: str | bytes) -> DecodeResult:
+    """Decode SMTP/MIME Quoted-Printable content into raw bytes."""
+    if not isinstance(data, (str, bytes)):
+        return DecodeResult(data, DECODE_NOT_APPLICABLE, "quoted_printable")
+    try:
+        raw = _as_bytes(data)
+    except UnicodeEncodeError as exc:
+        return DecodeResult(data, DECODE_ERROR, "quoted_printable", str(exc))
+    try:
+        decoded = quopri.decodestring(raw)
+    except Exception as exc:  # defensive
+        return DecodeResult(data, DECODE_ERROR, "quoted_printable", f"{type(exc).__name__}: {exc}")
+    status = DECODE_DECODED if decoded != raw else DECODE_UNCHANGED
+    return DecodeResult(decoded, status, "quoted_printable")
+
+
+def safe_text_decode(data: bytes, encoding: str = "utf-8") -> DecodeResult:
+    """Decode bytes as text, reporting malformed sequences as ``partial``.
+
+    Never raises and never silently turns malformed input into valid-looking
+    data without a status.
+    """
+    if not isinstance(data, (bytes, bytearray)):
+        return DecodeResult(data, DECODE_NOT_APPLICABLE, "text")
+    try:
+        return _decode_bytes(bytes(data), encoding)
+    except LookupError as exc:
+        return DecodeResult(data, DECODE_ERROR, "text", f"unknown_encoding: {exc}")
+
+
+def decode_mime_payload(
+    body: str | bytes, transfer_encoding: str, charset: str = "utf-8"
+) -> DecodeResult:
+    """Decode a declared MIME transfer encoding to a text payload.
+
+    ``transfer_encoding`` comes from the message's ``Content-Transfer-Encoding``
+    header. Unsupported/unknown encodings are reported as ``not_applicable``
+    instead of being guessed.
+    """
+    te = (transfer_encoding or "").strip().lower()
+    if te == "base64":
+        raw = decode_base64(body)
+        method = "base64"
+    elif te in ("quoted-printable", "quoted_printable"):
+        raw = decode_quoted_printable(body)
+        method = "quoted_printable"
+    elif te in ("", "7bit", "8bit", "binary"):
+        try:
+            raw = DecodeResult(_as_bytes(body), DECODE_UNCHANGED, te or "identity")
+        except UnicodeEncodeError as exc:
+            return DecodeResult(body, DECODE_ERROR, te or "identity", str(exc))
+        method = te or "identity"
+    else:
+        return DecodeResult(
+            body,
+            DECODE_NOT_APPLICABLE,
+            te,
+            f"unsupported_transfer_encoding: {te}",
+        )
+
+    if raw.status == DECODE_ERROR:
+        return DecodeResult(body, DECODE_ERROR, method, raw.error)
+
+    text = safe_text_decode(bytes(raw.value), charset)
+    if text.status == DECODE_ERROR:
+        return DecodeResult(body, DECODE_ERROR, method, text.error)
+
+    if text.status == DECODE_PARTIAL:
+        status = DECODE_PARTIAL
+    elif raw.status == DECODE_DECODED:
+        status = DECODE_DECODED
+    else:
+        status = DECODE_UNCHANGED
+    return DecodeResult(text.value, status, method, text.error)
 
 
 def percent_decode(text: str, *, recursive: bool = False) -> DecodeResult:
