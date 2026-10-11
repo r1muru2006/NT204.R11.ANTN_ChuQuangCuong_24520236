@@ -3,6 +3,7 @@
 from ids.decoder.decoder import (
     DecodeResult,
     decode_base64,
+    decode_event,
     decode_mime_payload,
     decode_quoted_printable,
     form_decode,
@@ -14,6 +15,7 @@ from ids.decoder.decoder import (
 __all__ = [
     "DecodeResult",
     "decode_base64",
+    "decode_event",
     "decode_mime_payload",
     "decode_quoted_printable",
     "form_decode",

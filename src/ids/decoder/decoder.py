@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import base64
 import binascii
+import copy
 import html
 import quopri
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import unquote_to_bytes
 
@@ -27,7 +28,9 @@ from ids.common.config import (
     DECODE_NOT_APPLICABLE,
     DECODE_PARTIAL,
     DECODE_UNCHANGED,
+    PipelineConfig,
 )
+from ids.common.models import NormalizedEvent
 
 __all__ = [
     "DecodeResult",
@@ -38,6 +41,7 @@ __all__ = [
     "decode_quoted_printable",
     "safe_text_decode",
     "decode_mime_payload",
+    "decode_event",
 ]
 
 _PERCENT_RE = re.compile(r"%[0-9A-Fa-f]{2}")
@@ -281,3 +285,121 @@ def percent_decode(text: str, *, recursive: bool = False) -> DecodeResult:
     elif result.status == DECODE_UNCHANGED:
         result.status = DECODE_DECODED
     return result
+
+
+_CHARSET_RE = re.compile(r"charset\s*=\s*\"?([\w.\-]+)", re.IGNORECASE)
+
+
+def _record(decoded: dict[str, Any], key: str, result: DecodeResult) -> str:
+    decoded[key] = {
+        "value": result.value,
+        "status": result.status,
+        "method": result.method,
+    }
+    return result.status
+
+
+def _aggregate(statuses: list[str]) -> str:
+    relevant = [s for s in statuses if s and s != DECODE_NOT_APPLICABLE]
+    if not relevant:
+        return DECODE_UNCHANGED
+    if DECODE_ERROR in relevant:
+        return DECODE_ERROR if all(s == DECODE_ERROR for s in relevant) else DECODE_PARTIAL
+    if DECODE_PARTIAL in relevant:
+        return DECODE_PARTIAL
+    if DECODE_DECODED in relevant:
+        return DECODE_DECODED
+    return DECODE_UNCHANGED
+
+
+def _content_type(headers: dict[str, Any], name: str) -> str:
+    for key, value in headers.items():
+        if str(key).lower() == name:
+            return str(value)
+    return ""
+
+
+def _decode_http(
+    fields: dict[str, Any],
+    decoded: dict[str, Any],
+    statuses: list[str],
+    errors: list[str],
+    config: PipelineConfig,
+) -> None:
+    uri = fields.get("uri")
+    if isinstance(uri, str):
+        result = percent_decode(uri, recursive=config.decode_recursive)
+        statuses.append(_record(decoded, "uri", result))
+        if result.error:
+            errors.append(result.error)
+
+    headers = fields.get("headers") or {}
+    body = fields.get("body")
+    if isinstance(body, str) and body != "":
+        content_type = _content_type(headers, "content-type").lower()
+        if "application/x-www-form-urlencoded" in content_type:
+            result = form_decode(body, recursive=config.decode_recursive)
+        elif config.html_entity_decoding:
+            result = html_entity_decode(body)
+        else:
+            result = DecodeResult(body, DECODE_UNCHANGED, "html")
+        statuses.append(_record(decoded, "body", result))
+        if result.error:
+            errors.append(result.error)
+
+
+def _decode_smtp(
+    fields: dict[str, Any],
+    decoded: dict[str, Any],
+    statuses: list[str],
+    errors: list[str],
+    config: PipelineConfig,
+) -> None:
+    mime = fields.get("mime")
+    if not isinstance(mime, dict):
+        return
+    headers = mime.get("headers") or {}
+    body = mime.get("body") or ""
+    if body == "":
+        return
+    transfer_encoding = _content_type(headers, "content-transfer-encoding")
+    content_type = _content_type(headers, "content-type")
+    match = _CHARSET_RE.search(content_type)
+    charset = match.group(1) if match else "utf-8"
+    result = decode_mime_payload(body, transfer_encoding, charset)
+    statuses.append(_record(decoded, "mime_body", result))
+    if result.error:
+        errors.append(result.error)
+
+
+def decode_event(
+    event: NormalizedEvent, config: PipelineConfig | None = None
+) -> NormalizedEvent:
+    """Decode an event's textual fields, preserving the original raw values.
+
+    Returns a copy of ``event`` with a ``decoded`` mapping appended to
+    ``fields``. The original ``uri``/``body``/headers are never overwritten.
+    """
+    config = config or PipelineConfig()
+    out = copy.deepcopy(event)
+    fields = out.fields if out.fields is not None else {}
+    out.fields = fields
+    if not config.enable_decoder:
+        return out
+
+    decoded: dict[str, Any] = {}
+    statuses: list[str] = []
+    errors: list[str] = []
+
+    application = (event.application or "").upper()
+    if application == "HTTP":
+        _decode_http(event.fields or {}, decoded, statuses, errors, config)
+    elif application == "SMTP":
+        _decode_smtp(event.fields or {}, decoded, statuses, errors, config)
+
+    if decoded:
+        fields["decoded"] = decoded
+    fields["decode_status"] = _aggregate(statuses)
+    if errors:
+        fields["decode_errors"] = errors
+    return out
