@@ -1,3 +1,5 @@
+import re
+
 from scapy.packet import Packet
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.dns import DNS, DNSQR, DNSRR
@@ -6,9 +8,41 @@ from ids.common.models import NormalizedEvent
 
 HTTP_METHODS = {b"GET", b"POST", b"PUT", b"DELETE", b"HEAD", b"OPTIONS", b"PATCH", b"CONNECT", b"TRACE"}
 
+MIME_HEADER_NAMES = {
+    "content-type",
+    "content-transfer-encoding",
+    "mime-version",
+    "content-disposition",
+}
+
 
 def _safe_decode(data):
     return data.decode("utf-8", errors="replace")
+
+
+def extract_mime(text):
+    """Split a decoded SMTP payload into MIME headers/body when present.
+
+    Returns ``{"headers": {...}, "body": "..."}`` only when a header block that
+    contains at least one MIME header is found. Ordinary SMTP command/response
+    payloads therefore keep their previous representation.
+    """
+    match = re.search(r"\r?\n\r?\n", text)
+    if not match:
+        return None
+    header_block = text[: match.start()]
+    body = text[match.end():]
+    headers = {}
+    for line in header_block.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if key:
+            headers[key] = value.strip()
+    if not any(key.lower() in MIME_HEADER_NAMES for key in headers):
+        return None
+    return {"headers": headers, "body": body}
 
 def _tcp_flags(flags):
     try:
@@ -114,6 +148,9 @@ def parse_smtp(payload: bytes, event: NormalizedEvent):
         if len(line) >= 3 and line[:3].isdigit():
             responses.append({"code": int(line[:3]), "text": line[4:] if len(line) > 4 else ""})
     f.update({"commands": commands, "responses": responses})
+    mime = extract_mime(text)
+    if mime is not None:
+        f["mime"] = mime
     event.fields = f
 
 
