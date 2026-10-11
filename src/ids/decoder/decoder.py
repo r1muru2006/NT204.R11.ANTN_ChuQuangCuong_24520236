@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import html
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -118,6 +119,24 @@ def form_decode(text: str, *, recursive: bool = False) -> DecodeResult:
             out[key] = value
 
     return DecodeResult(out, status, "form", "; ".join(errors) or None)
+
+
+def html_entity_decode(text: str) -> DecodeResult:
+    """Decode HTML entities such as ``&lt;script&gt;`` -> ``<script>``.
+
+    Only textual fields should be passed here; binary data must not be treated
+    as HTML.
+    """
+    if not isinstance(text, str):
+        return DecodeResult(text, DECODE_NOT_APPLICABLE, "html")
+    if "&" not in text:
+        return DecodeResult(text, DECODE_UNCHANGED, "html")
+    try:
+        decoded = html.unescape(text)
+    except Exception as exc:  # defensive
+        return DecodeResult(text, DECODE_ERROR, "html", f"{type(exc).__name__}: {exc}")
+    status = DECODE_DECODED if decoded != text else DECODE_UNCHANGED
+    return DecodeResult(decoded, status, "html")
 
 
 def percent_decode(text: str, *, recursive: bool = False) -> DecodeResult:
