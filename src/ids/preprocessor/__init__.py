@@ -1,0 +1,1 @@
+"""Event validation and normalization."""
