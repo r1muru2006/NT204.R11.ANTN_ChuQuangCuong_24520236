@@ -1,0 +1,13 @@
+{
+  "enable_decoder": true,
+  "max_decode_size": 1000000,
+  "decode_recursive": false,
+  "html_entity_decoding": true,
+  "enable_preprocessor": true,
+  "invalid_event_policy": "mark",
+  "unsupported_protocol_policy": "mark",
+  "enable_flow_tracker": true,
+  "tcp_idle_timeout": 300.0,
+  "udp_idle_timeout": 60.0,
+  "log_level": "INFO"
+}
