@@ -41,6 +41,7 @@ class FlowTracker:
         self._flows: dict[str, FlowRecord] = {}
         self._keys: dict[str, FlowKey] = {}
         self._tcp_meta: dict[str, dict[str, Any]] = {}
+        self._expired: list[FlowRecord] = []
 
     # -- inspection -----------------------------------------------------
     @property
@@ -69,7 +70,7 @@ class FlowTracker:
         return FlowKey.from_endpoints(protocol, first, second)
 
     def process(
-        self, event: NormalizedEvent, auto_expire: bool = False
+        self, event: NormalizedEvent, auto_expire: bool = True
     ) -> FlowRecord | None:
         """Update (or create) the flow for ``event`` and return its record.
 
@@ -98,7 +99,8 @@ class FlowTracker:
                 endpoint_b=str(key.endpoint_b),
                 start_time=timestamp,
                 last_seen=timestamp,
-                state=NEW,
+                # UDP is connectionless: an existing UDP flow is already active.
+                state=ESTABLISHED if key.protocol == "UDP" else NEW,
             )
             self._flows[key.flow_id] = flow
             self._keys[key.flow_id] = key
@@ -197,7 +199,48 @@ class FlowTracker:
             else 0.0
         )
 
-    # -- expiration (implemented in a later step) ----------------------
+    # -- expiration and export -----------------------------------------
+    def _timeout_for(self, flow: FlowRecord) -> float:
+        if flow.protocol == "TCP":
+            return self.config.tcp_idle_timeout
+        return self.config.udp_idle_timeout
+
+    def _remove(self, flow_id: str) -> None:
+        self._flows.pop(flow_id, None)
+        self._keys.pop(flow_id, None)
+        self._tcp_meta.pop(flow_id, None)
+
     def expire(self, now: float | None = None) -> list[FlowRecord]:
-        _ = now
-        return []
+        """Remove and return flows idle longer than their protocol timeout.
+
+        Expired flows are also buffered for :meth:`take_expired` so an offline
+        pipeline can drain them uniformly.
+        """
+        if now is None:
+            now = time.time()
+        expired: list[FlowRecord] = []
+        for flow_id, flow in list(self._flows.items()):
+            last = flow.last_seen if flow.last_seen is not None else flow.start_time
+            if last is None:
+                continue
+            if now - last > self._timeout_for(flow):
+                expired.append(flow)
+                self._remove(flow_id)
+        expired.sort(key=lambda f: (f.start_time or 0.0, f.flow_id))
+        self._expired.extend(expired)
+        return expired
+
+    def take_expired(self) -> list[FlowRecord]:
+        """Return buffered expired flows and clear the buffer."""
+        buffered, self._expired = self._expired, []
+        return buffered
+
+    def finalize(self, now: float | None = None) -> list[FlowRecord]:
+        """Close and export every remaining active flow (e.g. at end of input)."""
+        expired = self.expire(now if now is not None else time.time())
+        for flow_id, flow in list(self._flows.items()):
+            if flow.state in (NEW, CLOSING):
+                flow.state = CLOSED
+            self._remove(flow_id)
+            self._expired.append(flow)
+        return self.take_expired()
