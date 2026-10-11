@@ -1,0 +1,110 @@
+"""Encoding/representation decoding for IDS events.
+
+The decoder converts data from an encoded/represented form into a directly
+analyzable form **without changing its logical meaning**. It never performs
+cryptographic decryption: percent-decoding, HTML entity decoding, Base64 and
+Quoted-Printable are representations, not encryption.
+
+Every decode operation returns a :class:`DecodeResult` that carries the decoded
+value, a status and, on failure, an error message. A single decoding failure is
+reported through metadata and never terminates the pipeline.
+"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import re
+from dataclasses import dataclass, field
+from typing import Any
+from urllib.parse import unquote_to_bytes
+
+from ids.common.config import (
+    DECODE_DECODED,
+    DECODE_ERROR,
+    DECODE_NOT_APPLICABLE,
+    DECODE_PARTIAL,
+    DECODE_UNCHANGED,
+)
+
+__all__ = [
+    "DecodeResult",
+    "percent_decode",
+    "form_decode",
+    "html_entity_decode",
+    "decode_base64",
+    "decode_quoted_printable",
+    "safe_text_decode",
+]
+
+_PERCENT_RE = re.compile(r"%[0-9A-Fa-f]{2}")
+_INVALID_PERCENT_RE = re.compile(r"%(?![0-9A-Fa-f]{2})")
+
+
+@dataclass
+class DecodeResult:
+    """Result of a single decoding operation."""
+
+    value: Any
+    status: str = DECODE_UNCHANGED
+    method: str | None = None
+    error: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        """True when no hard decoding error occurred."""
+        return self.status != DECODE_ERROR
+
+    @property
+    def decoded(self) -> bool:
+        """True when a successful decoding changed the value."""
+        return self.status == DECODE_DECODED
+
+
+def _decode_bytes(raw: bytes, encoding: str = "utf-8") -> DecodeResult:
+    """Decode raw bytes, transparently reporting malformed sequences."""
+    try:
+        return DecodeResult(raw.decode(encoding, errors="strict"), DECODE_DECODED)
+    except UnicodeDecodeError as exc:
+        text = raw.decode(encoding, errors="replace")
+        return DecodeResult(
+            text,
+            DECODE_PARTIAL,
+            error=f"{encoding}_decode_error: {exc}",
+        )
+
+
+def percent_decode(text: str, *, recursive: bool = False) -> DecodeResult:
+    """Decode HTTP/URI percent-encoding (``%27`` -> ``'``).
+
+    ``+`` is intentionally *not* converted to a space here: that rule only
+    applies to ``application/x-www-form-urlencoded`` (see :func:`form_decode`).
+    """
+    if not isinstance(text, str):
+        return DecodeResult(text, DECODE_NOT_APPLICABLE, "percent")
+    if "%" not in text:
+        return DecodeResult(text, DECODE_UNCHANGED, "percent")
+
+    malformed = bool(_INVALID_PERCENT_RE.search(text))
+    try:
+        raw = unquote_to_bytes(text)
+        result = _decode_bytes(raw)
+    except Exception as exc:  # defensive: never propagate to the pipeline
+        return DecodeResult(text, DECODE_ERROR, "percent", f"{type(exc).__name__}: {exc}")
+
+    result.method = "percent"
+    if malformed:
+        result.status = DECODE_PARTIAL
+        result.error = "malformed_percent_sequence"
+
+    if recursive and result.ok and result.value != text and "%" in str(result.value):
+        nested = percent_decode(str(result.value), recursive=True)
+        if nested.ok:
+            result.value = nested.value
+
+    if result.value == text:
+        if not malformed:
+            result.status = DECODE_UNCHANGED
+    elif result.status == DECODE_UNCHANGED:
+        result.status = DECODE_DECODED
+    return result
