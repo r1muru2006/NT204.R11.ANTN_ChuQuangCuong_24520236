@@ -29,8 +29,8 @@ from ids.common.config import (
 
 __all__ = [
     "DecodeResult",
-    "percent_decode",
     "form_decode",
+    "percent_decode",
     "html_entity_decode",
     "decode_base64",
     "decode_quoted_printable",
@@ -72,6 +72,52 @@ def _decode_bytes(raw: bytes, encoding: str = "utf-8") -> DecodeResult:
             DECODE_PARTIAL,
             error=f"{encoding}_decode_error: {exc}",
         )
+
+
+def form_decode(text: str, *, recursive: bool = False) -> DecodeResult:
+    """Decode ``application/x-www-form-urlencoded`` data into a mapping.
+
+    ``+`` means a space and each component is percent-decoded, per the
+    ``application/x-www-form-urlencoded`` rules. Duplicate keys are preserved as
+    a list so no submitted value is lost.
+    """
+    if not isinstance(text, str):
+        return DecodeResult(text, DECODE_NOT_APPLICABLE, "form")
+    if text == "":
+        return DecodeResult({}, DECODE_UNCHANGED, "form")
+
+    out: dict[str, Any] = {}
+    status = DECODE_UNCHANGED
+    errors: list[str] = []
+
+    for pair in re.split(r"[&;]", text):
+        if pair == "":
+            continue
+        key_raw, _, value_raw = pair.partition("=")
+        key_res = percent_decode(key_raw.replace("+", " "), recursive=recursive)
+        value_res = percent_decode(value_raw.replace("+", " "), recursive=recursive)
+        for part in (key_res, value_res):
+            if part.status == DECODE_DECODED:
+                status = DECODE_DECODED
+            elif part.status == DECODE_PARTIAL:
+                status = DECODE_PARTIAL
+            elif part.status == DECODE_ERROR:
+                status = DECODE_ERROR
+            if part.error:
+                errors.append(part.error)
+
+        key = str(key_res.value)
+        value = value_res.value
+        if key in out:
+            existing = out[key]
+            if isinstance(existing, list):
+                existing.append(value)
+            else:
+                out[key] = [existing, value]
+        else:
+            out[key] = value
+
+    return DecodeResult(out, status, "form", "; ".join(errors) or None)
 
 
 def percent_decode(text: str, *, recursive: bool = False) -> DecodeResult:
