@@ -40,6 +40,7 @@ class FlowTracker:
         self.config = config or PipelineConfig()
         self._flows: dict[str, FlowRecord] = {}
         self._keys: dict[str, FlowKey] = {}
+        self._tcp_meta: dict[str, dict[str, Any]] = {}
 
     # -- inspection -----------------------------------------------------
     @property
@@ -118,8 +119,61 @@ class FlowTracker:
             if flow.application_protocol in ("", "UNKNOWN"):
                 flow.application_protocol = event.application.upper()
 
+        if key.protocol == "TCP":
+            self._apply_tcp_flags(flow, event)
+
         self._update_times(flow, timestamp)
         return flow
+
+    def _apply_tcp_flags(self, flow: FlowRecord, event: NormalizedEvent) -> None:
+        """Count TCP control flags and advance the connection state."""
+        flags = (event.tcp_flags or "").upper()
+        meta = self._tcp_meta.setdefault(
+            flow.flow_id, {"syn_seen": False, "fin_seen": set()}
+        )
+
+        if "S" in flags:
+            flow.syn_count += 1
+            meta["syn_seen"] = True
+        if "A" in flags:
+            flow.ack_count += 1
+        if "F" in flags:
+            flow.fin_count += 1
+        if "R" in flags:
+            flow.rst_count += 1
+
+        self._advance_tcp_state(flow, flags, event, meta)
+
+    @staticmethod
+    def _advance_tcp_state(
+        flow: FlowRecord, flags: str, event: NormalizedEvent, meta: dict[str, Any]
+    ) -> None:
+        """Advance the TCP state, tolerating missing/reordered/retransmitted packets."""
+        has_syn = "S" in flags
+        has_ack = "A" in flags
+        has_fin = "F" in flags
+
+        if "R" in flags:
+            flow.state = RESET
+            return
+
+        if has_fin:
+            direction = f"{event.src_ip}:{event.src_port}"
+            meta["fin_seen"].add(direction)
+            if flow.state == CLOSING or len(meta["fin_seen"]) >= 2:
+                flow.state = CLOSED
+            else:
+                flow.state = CLOSING
+            return
+
+        if flow.state in (NEW,):
+            # SYN and SYN/ACK keep the flow in the handshake phase; the final
+            # ACK (or any non-SYN packet when the capture starts mid-stream)
+            # establishes the connection.
+            if has_syn:
+                return
+            if has_ack:
+                flow.state = ESTABLISHED
 
     @staticmethod
     def _timestamp(event: NormalizedEvent) -> float | None:
