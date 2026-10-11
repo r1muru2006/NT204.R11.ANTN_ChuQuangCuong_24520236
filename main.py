@@ -3,14 +3,13 @@ import json
 import sys
 from pathlib import Path
 
-module_dir1 = Path(__file__).resolve().parent / "1. Packet Capture and Parser"
-module_dir2 = Path(__file__).resolve().parent / "2. Decoder and Tracker"
-sys.path.append(str(module_dir1))
-sys.path.append(str(module_dir2))
+# Use the src/ layout without requiring an editable install.
+SRC_DIR = Path(__file__).resolve().parent / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-# Import trực tiếp file capture.py và parser.py
-from capture import read_pcap, live_capture
-from parser import parse_packet
+from ids.capture import live_capture, read_pcap  # noqa: E402
+from ids.parser import parse_packet  # noqa: E402
 
 
 def write_event(event, fp):
@@ -41,9 +40,15 @@ def main():
                 event = parse_packet(pkt, packet_id)
                 write_event(event, fp)
         else:
-            live_capture(args.interface, lambda pkt, packet_id: write_event(parse_packet(pkt, packet_id), fp), args.count, args.timeout)
+            live_capture(
+                args.interface,
+                lambda pkt, packet_id: write_event(parse_packet(pkt, packet_id), fp),
+                args.count,
+                args.timeout,
+            )
     print(f"[+] Output: {out}")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

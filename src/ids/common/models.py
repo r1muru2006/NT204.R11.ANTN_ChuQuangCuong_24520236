@@ -2,6 +2,9 @@ from dataclasses import dataclass, asdict
 from typing import Any
 import json
 
+
+__all__ = ["NormalizedEvent"]
+
 @dataclass
 class NormalizedEvent:
     packet_id: int
