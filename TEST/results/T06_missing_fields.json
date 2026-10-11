@@ -1,0 +1,12 @@
+{
+  "case": "T06_missing_fields",
+  "status": "PASS",
+  "observed": {
+    "status": "invalid",
+    "action": "mark",
+    "reason": [
+      "missing_timestamp",
+      "missing_ip"
+    ]
+  }
+}

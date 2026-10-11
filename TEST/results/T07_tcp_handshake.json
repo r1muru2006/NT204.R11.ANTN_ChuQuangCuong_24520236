@@ -1,0 +1,9 @@
+{
+  "case": "T07_tcp_handshake",
+  "status": "PASS",
+  "observed": {
+    "flows": 1,
+    "state": "ESTABLISHED",
+    "flow_id": "TCP|10.0.0.1:1111<->10.0.0.2:80"
+  }
+}

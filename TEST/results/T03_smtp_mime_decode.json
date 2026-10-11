@@ -1,0 +1,14 @@
+{
+  "case": "T03_smtp_mime_decode",
+  "status": "PASS",
+  "observed": {
+    "base64": {
+      "value": "Hello <b>MIME</b>",
+      "status": "decoded"
+    },
+    "quoted_printable": {
+      "value": "café!",
+      "status": "decoded"
+    }
+  }
+}

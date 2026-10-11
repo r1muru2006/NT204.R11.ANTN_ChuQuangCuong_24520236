@@ -1,0 +1,9 @@
+{
+  "case": "T09_tcp_close_reset",
+  "status": "PASS",
+  "observed": {
+    "after_fin": "CLOSING",
+    "after_second_fin": "CLOSED",
+    "after_rst": "RESET"
+  }
+}

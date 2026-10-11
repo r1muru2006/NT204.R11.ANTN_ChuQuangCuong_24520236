@@ -1,0 +1,13 @@
+{
+  "case": "T13_flow_statistics",
+  "status": "PASS",
+  "observed": {
+    "packet_count": 3,
+    "byte_count": 100,
+    "forward_packet_count": 2,
+    "backward_packet_count": 1,
+    "duration": 3.0,
+    "syn_count": 2,
+    "ack_count": 2
+  }
+}

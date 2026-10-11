@@ -1,0 +1,9 @@
+{
+  "case": "T10_udp_query_response",
+  "status": "PASS",
+  "observed": {
+    "flows": 1,
+    "packet_count": 2,
+    "byte_count": 80
+  }
+}

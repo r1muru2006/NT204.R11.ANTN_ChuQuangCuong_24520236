@@ -1,0 +1,7 @@
+{
+  "case": "T12_idle_timeout",
+  "status": "PASS",
+  "observed": {
+    "active_after_timeout": 0
+  }
+}

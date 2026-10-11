@@ -1,0 +1,8 @@
+{
+  "case": "T05_normalization",
+  "status": "PASS",
+  "observed": {
+    "transport": "TCP",
+    "application": "HTTP"
+  }
+}

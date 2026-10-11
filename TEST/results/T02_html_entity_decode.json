@@ -1,0 +1,9 @@
+{
+  "case": "T02_html_entity_decode",
+  "status": "PASS",
+  "observed": {
+    "raw": "&lt;script&gt;alert(1)&lt;/script&gt;",
+    "decoded": "<script>alert(1)</script>",
+    "status": "decoded"
+  }
+}

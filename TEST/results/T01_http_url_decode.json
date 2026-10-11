@@ -1,0 +1,9 @@
+{
+  "case": "T01_http_url_decode",
+  "status": "PASS",
+  "observed": {
+    "raw_uri": "/search?q=%27%20OR%201%3D1&next=%2Fhome",
+    "decoded_uri": "/search?q=' OR 1=1&next=/home",
+    "status": "decoded"
+  }
+}

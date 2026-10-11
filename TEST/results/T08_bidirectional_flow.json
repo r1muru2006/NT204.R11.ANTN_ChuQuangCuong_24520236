@@ -1,0 +1,9 @@
+{
+  "case": "T08_bidirectional_flow",
+  "status": "PASS",
+  "observed": {
+    "flow_id": "TCP|10.0.0.1:1111<->10.0.0.2:80",
+    "forward_packets": 1,
+    "backward_packets": 1
+  }
+}

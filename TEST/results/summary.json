@@ -1,0 +1,144 @@
+{
+  "total": 14,
+  "passed": 14,
+  "failed": 0,
+  "results": [
+    {
+      "case": "T01_http_url_decode",
+      "status": "PASS",
+      "observed": {
+        "raw_uri": "/search?q=%27%20OR%201%3D1&next=%2Fhome",
+        "decoded_uri": "/search?q=' OR 1=1&next=/home",
+        "status": "decoded"
+      }
+    },
+    {
+      "case": "T02_html_entity_decode",
+      "status": "PASS",
+      "observed": {
+        "raw": "&lt;script&gt;alert(1)&lt;/script&gt;",
+        "decoded": "<script>alert(1)</script>",
+        "status": "decoded"
+      }
+    },
+    {
+      "case": "T03_smtp_mime_decode",
+      "status": "PASS",
+      "observed": {
+        "base64": {
+          "value": "Hello <b>MIME</b>",
+          "status": "decoded"
+        },
+        "quoted_printable": {
+          "value": "café!",
+          "status": "decoded"
+        }
+      }
+    },
+    {
+      "case": "T04_invalid_utf8",
+      "status": "PASS",
+      "observed": {
+        "status": "partial",
+        "error": "utf-8_decode_error: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+        "value": "��\u0000 malformed"
+      }
+    },
+    {
+      "case": "T05_normalization",
+      "status": "PASS",
+      "observed": {
+        "transport": "TCP",
+        "application": "HTTP"
+      }
+    },
+    {
+      "case": "T06_missing_fields",
+      "status": "PASS",
+      "observed": {
+        "status": "invalid",
+        "action": "mark",
+        "reason": [
+          "missing_timestamp",
+          "missing_ip"
+        ]
+      }
+    },
+    {
+      "case": "T07_tcp_handshake",
+      "status": "PASS",
+      "observed": {
+        "flows": 1,
+        "state": "ESTABLISHED",
+        "flow_id": "TCP|10.0.0.1:1111<->10.0.0.2:80"
+      }
+    },
+    {
+      "case": "T08_bidirectional_flow",
+      "status": "PASS",
+      "observed": {
+        "flow_id": "TCP|10.0.0.1:1111<->10.0.0.2:80",
+        "forward_packets": 1,
+        "backward_packets": 1
+      }
+    },
+    {
+      "case": "T09_tcp_close_reset",
+      "status": "PASS",
+      "observed": {
+        "after_fin": "CLOSING",
+        "after_second_fin": "CLOSED",
+        "after_rst": "RESET"
+      }
+    },
+    {
+      "case": "T10_udp_query_response",
+      "status": "PASS",
+      "observed": {
+        "flows": 1,
+        "packet_count": 2,
+        "byte_count": 80
+      }
+    },
+    {
+      "case": "T11_concurrent_flows",
+      "status": "PASS",
+      "observed": {
+        "active_flows": 3,
+        "flow_ids": [
+          "TCP|10.0.0.1:1111<->10.0.0.2:80",
+          "TCP|10.0.0.1:3333<->10.0.0.2:443",
+          "TCP|10.0.0.2:80<->10.0.0.3:2222"
+        ]
+      }
+    },
+    {
+      "case": "T12_idle_timeout",
+      "status": "PASS",
+      "observed": {
+        "active_after_timeout": 0
+      }
+    },
+    {
+      "case": "T13_flow_statistics",
+      "status": "PASS",
+      "observed": {
+        "packet_count": 3,
+        "byte_count": 100,
+        "forward_packet_count": 2,
+        "backward_packet_count": 1,
+        "duration": 3.0,
+        "syn_count": 2,
+        "ack_count": 2
+      }
+    },
+    {
+      "case": "T14_malformed_event",
+      "status": "PASS",
+      "observed": {
+        "tracked_flow": null,
+        "preprocess_status": "invalid"
+      }
+    }
+  ]
+}
