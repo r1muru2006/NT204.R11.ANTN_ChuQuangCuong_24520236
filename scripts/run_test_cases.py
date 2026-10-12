@@ -6,7 +6,8 @@ Usage (from the repository root):
     python scripts/run_test_cases.py
 
 Each case exercises the real implementation and writes its observed result to
-``TEST/results/<case>.json`` plus a combined ``TEST/results/summary.json``.
+``TEST/case2/results/<case>.json`` plus a combined
+``TEST/case2/results/summary.json``.
 Exit code is 0 only when every case passes.
 """
 
@@ -30,7 +31,7 @@ from ids.decoder import (  # noqa: E402
 from ids.flow import FlowState, FlowTracker  # noqa: E402
 from ids.preprocessor import preprocess_event  # noqa: E402
 
-RESULTS_DIR = REPO_ROOT / "TEST" / "results"
+RESULTS_DIR = REPO_ROOT / "TEST" / "case2" / "results"
 
 
 def _tcp(pid, src, dst, sport, dport, ts, flags="A", payload_len=0, app="UNKNOWN"):

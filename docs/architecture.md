@@ -36,7 +36,7 @@ independently.
   malformed packet: errors are recorded in `NormalizedEvent.error`.
 
 ### common.models (`NormalizedEvent`)
-Stable Assignment 1 event schema:
+Stable Case 1 event schema:
 
 ```
 packet_id, timestamp, src_ip, dst_ip, ip_version, transport,
@@ -93,9 +93,9 @@ bytes. The same definition is used for both directions project-wide.
 
 ## Design decisions
 
-* **Frozen Assignment 1 schema.** New metadata is added inside `fields` (a
+* **Frozen Case 1 schema.** New metadata is added inside `fields` (a
   free-form mapping) rather than as new dataclass attributes, so the original
-  Assignment 1 JSONL output is reproduced byte-for-byte when the new stages are
+  Case 1 JSONL output is reproduced byte-for-byte when the new stages are
   disabled (`--no-decode --no-preprocess --no-flow`).
 * **Canonical flow key.** Endpoints are sorted by (IP version, numeric IP,
   port) so `A→B` and `B→A` collapse to one key and one `flow_id`.

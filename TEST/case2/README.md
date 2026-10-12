@@ -1,4 +1,4 @@
-# Assignment 2 mandatory cases (T01–T14)
+# Case 2 mandatory cases (T01–T14)
 
 Reproduce all cases with:
 
@@ -6,7 +6,7 @@ Reproduce all cases with:
 python scripts/run_test_cases.py
 ```
 
-Results are written to `TEST/results/`. The same behaviour is covered by
+Results are written to `TEST/case2/results/`. The same behaviour is covered by
 `tests/unit/` and `tests/integration/`.
 
 | ID | Test | Input / scenario | Expected result |
