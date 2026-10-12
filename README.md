@@ -60,10 +60,10 @@ Useful options:
 To reproduce the original Assignment 1 output exactly (parser only):
 
 ```bash
-python main.py --pcap "TEST/Bai1/4.http_get/http_get.pcap" \
+python main.py --pcap "TEST/case1/4.http_get/http_get.pcap" \
     -o /tmp/out.jsonl --flows-output /tmp/flows.jsonl \
     --no-decode --no-preprocess --no-flow
-diff /tmp/out.jsonl "TEST/Bai1/4.http_get/output.jsonl"   # identical
+diff /tmp/out.jsonl "TEST/case1/4.http_get/output.jsonl"   # identical
 ```
 
 ## Configuration
@@ -130,7 +130,7 @@ python scripts/run_test_cases.py # mandatory T01-T14, writes TEST/results/
 
 `python scripts/run_test_cases.py` runs the 14 mandatory cases deterministically
 and records the observed values under `TEST/results/`. The case specification is
-in [`TEST/cases/README.md`](TEST/cases/README.md).
+in [`TEST/case2/README.md`](TEST/case2/README.md).
 
 ## Implementation status
 
@@ -158,7 +158,7 @@ in [`TEST/cases/README.md`](TEST/cases/README.md).
 
 * **Assignment 1 (earlier work):** ChatGPT — consulted for packet field
   reference, Scapy examples and the initial test kit
-  (`TEST/Bai1/test.py`, parser).
+  (`TEST/case1/test.py`, parser).
 * **Assignment 2 (this work):** an AI coding assistant (opencode CLI) was used
   to inspect the repository, refactor it into the `src/ids` package, and
   implement the decoder, preprocessor, flow tracker, pipeline, tests and

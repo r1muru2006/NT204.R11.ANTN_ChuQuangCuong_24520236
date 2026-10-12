@@ -9,7 +9,7 @@ from ids.parser import parse_packet
 from ids.pipeline import Pipeline, run_pcap
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BAI1 = REPO_ROOT / "TEST" / "Bai1"
+CASE1 = REPO_ROOT / "TEST" / "case1"
 
 
 class _Sink:
@@ -43,7 +43,7 @@ def _process_pcaps(pcaps, config=None):
 def test_run_pcap_tcp_handshake_produces_established_flow():
     events_sink, flows_sink = _Sink(), _Sink()
     count = run_pcap(
-        str(BAI1 / "1.tcp_handshake" / "tcp_handshake.pcap"),
+        str(CASE1 / "1.tcp_handshake" / "tcp_handshake.pcap"),
         events_sink,
         flows_sink,
         PipelineConfig(),
@@ -60,7 +60,7 @@ def test_run_pcap_tcp_handshake_produces_established_flow():
 
 
 def test_pipeline_decodes_http_form_body():
-    events, _ = _process_pcaps([BAI1 / "5.http_post" / "http_post.pcap"])
+    events, _ = _process_pcaps([CASE1 / "5.http_post" / "http_post.pcap"])
     decoded = events[0].fields["decoded"]["body"]
     assert decoded["value"] == {"username": "alice", "password": "test"}
     assert events[0].fields["preprocess_status"] == "valid"
@@ -68,7 +68,7 @@ def test_pipeline_decodes_http_form_body():
 
 def test_pipeline_dns_query_response_single_flow():
     events, flows = _process_pcaps(
-        [BAI1 / "7.dns_query" / "dns_query.pcap", BAI1 / "8.dns_response" / "dns_response.pcap"]
+        [CASE1 / "7.dns_query" / "dns_query.pcap", CASE1 / "8.dns_response" / "dns_response.pcap"]
     )
     assert len(flows) == 1
     flow = flows[0]
@@ -80,7 +80,7 @@ def test_pipeline_dns_query_response_single_flow():
 
 
 def test_pipeline_malformed_event_does_not_crash():
-    events, _ = _process_pcaps([BAI1 / "12.malformed" / "malformed.pcap"])
+    events, _ = _process_pcaps([CASE1 / "12.malformed" / "malformed.pcap"])
     assert events[0].fields["preprocess_status"] in ("partial", "invalid")
     assert events[0].fields["processing_action"] in ("mark", "accept", "skip")
     assert events[0].fields["reason"]
