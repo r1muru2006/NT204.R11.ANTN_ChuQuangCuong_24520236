@@ -1,10 +1,27 @@
 # NT204.R11.ANTN — Intrusion Detection System (IDS/IPS)
 
-A small Python IDS/IPS processing pipeline built on Scapy.
+A small Python IDS/IPS processing pipeline built on Scapy, developed in two
+equally important cases/stages.
 
-* **Assignment 1** — packet capture and parsing into normalized JSONL events.
-* **Assignment 2** — decoder, preprocessor and bidirectional flow/connection
-  tracker layered on top of Assignment 1.
+## Case 1 — Packet Capture & Parser
+
+Capture live or offline (PCAP) traffic and parse every packet into a normalized
+JSONL event, with IPv4/TCP/UDP handling and HTTP/DNS/SMTP application detection.
+
+* Modules: `src/ids/capture/`, `src/ids/parser/`, `src/ids/common/models.py`
+* Output: one `NormalizedEvent` per packet (JSON Lines)
+
+## Case 2 — Decoder, Preprocessor & Flow/Connection Tracker
+
+Decode encoded fields, validate and normalize events, and group packets into
+bidirectional flows with connection state and statistics.
+
+* Modules: `src/ids/decoder/`, `src/ids/preprocessor/`, `src/ids/flow/`
+* Output: enriched events plus `FlowRecord` records (JSON Lines)
+
+Both cases are first-class and integrated behind the same CLI. Case 2 consumes
+the `NormalizedEvent` contract produced by Case 1, and disabling Case 2's stages
+(`--no-decode --no-preprocess --no-flow`) reproduces Case 1 output exactly.
 
 ```
 Packet Capture & Parser  ->  Decoder  ->  Preprocessor  ->  Flow Tracker  ->  Feature Extractor
@@ -57,7 +74,7 @@ Useful options:
 | `--no-decode` / `--no-preprocess` / `--no-flow` | disable a stage |
 | `--log-level` | e.g. `INFO`, `DEBUG` |
 
-To reproduce the original Assignment 1 output exactly (parser only):
+To reproduce the original Case 1 output exactly (parser only):
 
 ```bash
 python main.py --pcap "TEST/case1/4.http_get/http_get.pcap" \
@@ -113,9 +130,11 @@ python main.py --pcap capture.pcap --config config/ids.example.json
 │   └── pipeline.py             # end-to-end orchestration
 ├── tests/unit/                 # decoder, preprocessor, flow tracker
 ├── tests/integration/          # PCAP-driven pipeline tests
-├── TEST/                       # reproducible test cases + recorded results
+├── TEST/
+│   ├── case1/                  # Case 1 artifacts (PCAP inputs + recorded output)
+│   └── case2/                  # Case 2 definitions + results/T01-T14
 ├── scripts/run_test_cases.py   # T01-T14 runner
-└── docs/                       # architecture + assignment notes
+└── docs/                       # architecture + case notes
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for module contracts and
@@ -125,19 +144,30 @@ design decisions.
 
 ```bash
 python -m pytest                 # unit + integration tests
-python scripts/run_test_cases.py # mandatory T01-T14, writes TEST/results/
+python scripts/run_test_cases.py # mandatory T01-T14, writes TEST/case2/results/
 ```
 
 `python scripts/run_test_cases.py` runs the 14 mandatory cases deterministically
-and records the observed values under `TEST/results/`. The case specification is
-in [`TEST/case2/README.md`](TEST/case2/README.md).
+and records the observed values under `TEST/case2/results/`. The case
+specification is in [`TEST/case2/README.md`](TEST/case2/README.md). Case 1
+artifacts are under `TEST/case1/`.
 
 ## Implementation status
 
+### Case 1 — Packet Capture & Parser
+
 | Component | Status |
 |-----------|--------|
-| Packet capture (live + PCAP) | Implemented |
-| Parser (IPv4/TCP/UDP/HTTP/DNS/SMTP) | Implemented |
+| Live packet capture | Implemented |
+| PCAP import / offline processing | Implemented |
+| IPv4 / TCP / UDP parsing | Implemented |
+| Application detection + parsing (HTTP/DNS/SMTP) | Implemented |
+| Normalized event + JSONL output | Implemented |
+
+### Case 2 — Decoder, Preprocessor & Flow/Connection Tracker
+
+| Component | Status |
+|-----------|--------|
 | Decoder (percent, form, HTML, Base64, QP, charset) | Implemented |
 | Preprocessor (validation, normalization, policies) | Implemented |
 | Flow/connection tracker (TCP state, UDP, timeouts, stats) | Implemented |
@@ -152,20 +182,19 @@ in [`TEST/case2/README.md`](TEST/case2/README.md).
   segments are only partially reconstructed.
 * `byte_count` counts payload bytes, not frame bytes (see architecture doc).
 * IPv6 is parsed at the IP layer, but application detection focuses on the
-  Assignment 1 protocol set.
+  Case 1 protocol set.
 
 ## AI usage
 
-* **Assignment 1 (earlier work):** ChatGPT — consulted for packet field
-  reference, Scapy examples and the initial test kit
-  (`TEST/case1/test.py`, parser).
-* **Assignment 2 (this work):** an AI coding assistant (opencode CLI) was used
-  to inspect the repository, refactor it into the `src/ids` package, and
-  implement the decoder, preprocessor, flow tracker, pipeline, tests and
-  documentation. Source sections produced/refactored with AI assistance:
+* **Case 1 (earlier work):** ChatGPT — consulted for packet field reference,
+  Scapy examples and the initial test kit (`TEST/case1/test.py`, parser).
+* **Case 2 (this work):** an AI coding assistant (opencode CLI) was used to
+  inspect the repository, refactor it into the `src/ids` package, and implement
+  the decoder, preprocessor, flow tracker, pipeline, tests and documentation.
+  Source sections produced/refactored with AI assistance:
   `src/ids/decoder/`, `src/ids/preprocessor/`, `src/ids/flow/`,
   `src/ids/pipeline.py`, `src/ids/common/`, `tests/`, `scripts/run_test_cases.py`
   and this README.
 
 All AI-assisted code was executed and tested against the recorded results in
-`TEST/results/` and can be explained in detail.
+`TEST/case2/results/` and can be explained in detail.
